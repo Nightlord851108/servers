@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: memory-mcp-server
+    namespace: mcp
+    labels:
+        app: memory-mcp-server
+        version: v1.0.0
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: memory-mcp-server
+    template:
+        metadata:
+            labels:
+                app: memory-mcp-server
+        spec:
+            containers:
+                - name: memory-mcp
+                  image: nightlord851108/memory-mcp:v1.0.4
+                  ports:
+                      - containerPort: 3000
+                        name: http
+                  env:
+                      - name: MCP_TRANSPORT
+                        value: "http"
+                      - name: PORT
+                        value: "3000"
+                      - name: MEMORY_FILE_PATH
+                        value: "/data/memory.json"
+                      - name: NODE_ENV
+                        value: "production"
+                  volumeMounts:
+                      - name: memory-storage
+                        mountPath: /data
+                  resources:
+                      requests:
+                          memory: "64Mi"
+                          cpu: "50m"
+                      limits:
+                          memory: "256Mi"
+                          cpu: "200m"
+                  livenessProbe:
+                      httpGet:
+                          path: /health
+                          port: 3000
+                      initialDelaySeconds: 15
+                      periodSeconds: 20
+                      timeoutSeconds: 5
+                      failureThreshold: 3
+                  readinessProbe:
+                      httpGet:
+                          path: /ready
+                          port: 3000
+                      initialDelaySeconds: 10
+                      periodSeconds: 10
+                      timeoutSeconds: 5
+                      failureThreshold: 2
+            volumes:
+                - name: memory-storage
+                  persistentVolumeClaim:
+                      claimName: memory-mcp-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: memory-mcp-service
+    namespace: mcp
+    labels:
+        app: memory-mcp-server
+spec:
+    selector:
+        app: memory-mcp-server
+    ports:
+        - protocol: TCP
+          port: 3000 # Service 對內的 port
+          targetPort: 3000 # Pod 內部 listen port
+    type: ClusterIP # 預設，僅 cluster 內可用
+---
+# ConfigMap for environment-specific configurations
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: memory-mcp-config
+    namespace: mcp
+    labels:
+        app: memory-mcp-server
+data:
+    MCP_TRANSPORT: "http"
+    PORT: "3000"
+    MEMORY_FILE_PATH: "/data/memory.json"
+    NODE_ENV: "production"
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+    finalizers:
+        - kubernetes.io/pv-protection
+    name: memory-mcp-pv
+spec:
+    accessModes:
+        - ReadWriteOnce
+    capacity:
+        storage: 100Gi
+    nfs:
+        path: /volume1/rancher/persistent_volumes
+        server: 192.168.1.100
+    mountOptions:
+        - nfsvers=4
+        - tcp
+        - hard
+        - intr
+    persistentVolumeReclaimPolicy: Retain
+    volumeMode: Filesystem
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: memory-mcp-pvc
+    namespace: mcp
+    labels:
+        app: memory-mcp-server
+spec:
+    accessModes:
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: 100Gi
+    volumeName: memory-mcp-pv
+    storageClassName: ""
