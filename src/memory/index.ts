@@ -467,7 +467,7 @@ async function main() {
         app.use(express.json());
 
         // HTTP JSON-RPC endpoint for MCP clients like Claude CLI
-        app.post("/mcp", async (req, res) => {
+        app.post("/", async (req, res) => {
             try {
                 const { method, id, params } = req.body;
                 let response;
