@@ -18,7 +18,7 @@ spec:
         spec:
             containers:
                 - name: memory-mcp
-                  image: nightlord851108/memory-mcp:v1.0.5
+                  image: nightlord851108/memory-mcp:v1.0.0
                   ports:
                       - containerPort: 3000
                         name: http
